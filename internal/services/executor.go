@@ -46,7 +46,8 @@ func (e *Executor) Execute(req models.ExecuteRequest) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), e.timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, req.Language, fileName)
+	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "--net=none", "--cpus=0.5", "--memory=50m", "-v", fmt.Sprintf("%s:/codeexec/%s:ro", fileName, fileName), "sandbox-python", "/codeexec/"+fileName)
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(output), fmt.Errorf("execution failed: %w", err)
