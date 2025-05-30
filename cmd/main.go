@@ -14,7 +14,7 @@ func main() {
 	logger := log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
 
 	// Initialize services
-	executor := services.NewExecutor(10, 30*time.Second)
+	executor := services.NewExecutor(1, 30*time.Second, logger)
 	handler := handlers.NewHandler(executor, logger)
 
 	// Setup routes

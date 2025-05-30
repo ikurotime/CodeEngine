@@ -22,12 +22,6 @@ func NewHandler(executor *services.Executor, logger *log.Logger) *Handler {
 	}
 }
 
-func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
-	h.logger.Printf("%s %s", r.Method, r.URL.Path)
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
-}
-
 func (h *Handler) Execute(w http.ResponseWriter, r *http.Request) {
 	h.logger.Printf("%s %s", r.Method, r.URL.Path)
 
@@ -54,8 +48,10 @@ func (h *Handler) Execute(w http.ResponseWriter, r *http.Request) {
 
 	output, err := h.executor.Execute(request)
 	if err != nil {
-		h.logger.Printf("Error executing code: %s", err)
-		h.writeErrorResponse(w, http.StatusInternalServerError, "Execution failed")
+		h.logger.Printf("Error executing code: %s, output: %s", err, output)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(models.ExecuteResponse{Output: output})
 		return
 	}
 
