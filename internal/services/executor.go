@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math/rand"
@@ -60,6 +61,7 @@ func (e *Executor) Execute(req models.ExecuteRequest) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
+	defer os.RemoveAll(filepath.Dir(fileName))
 
 	if err := e.copyCodeToContainer(containerID, fileName, req.Language); err != nil {
 		return "", fmt.Errorf("failed to copy code to container: %w", err)
@@ -67,7 +69,7 @@ func (e *Executor) Execute(req models.ExecuteRequest) (string, error) {
 
 	e.logger.Printf("Executing %s code in container %s", req.Language, containerID[:12])
 
-	output, err := e.executeCodeInContainer(containerID, req.Language, fileName)
+	output, err := e.executeCodeInContainer(containerID, req.Language)
 
 	if err != nil {
 		e.logger.Printf("Code execution failed in container %s: %v", containerID[:12], err)
@@ -98,7 +100,6 @@ func (e *Executor) createTempFiles(req models.ExecuteRequest) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer os.RemoveAll(tempDir)
 
 	fileName := filepath.Join(tempDir, fmt.Sprintf("script.%s", models.LanguageToExtension[req.Language]))
 	if err := os.WriteFile(fileName, []byte(req.Code), 0644); err != nil {
@@ -113,13 +114,28 @@ func (e *Executor) copyCodeToContainer(containerID string, fileName string, lang
 	return copyCmd.Run()
 }
 
-func (e *Executor) executeCodeInContainer(containerID string, language string, fileName string) (string, error) {
-	execCmd := exec.Command("docker", "exec", containerID, language, fileName)
+func (e *Executor) executeCodeInContainer(containerID string, language string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), e.timeout)
+	defer cancel()
+
+	var execCmd *exec.Cmd
+	switch language {
+	case "python3":
+		execCmd = exec.CommandContext(ctx, "docker", "exec", containerID, "python3", "/tmp/script.py")
+	case "nodejs":
+		execCmd = exec.CommandContext(ctx, "docker", "exec", containerID, "node", "/tmp/script.js")
+	default:
+		return "", fmt.Errorf("unsupported language: %s", language)
+	}
+
 	output, err := execCmd.CombinedOutput()
+
+	cleanupCmd := exec.Command("docker", "exec", containerID, "rm", "-f", "/tmp/script."+models.LanguageToExtension[language])
+	cleanupCmd.Run()
+
 	if err != nil {
 		return string(output), fmt.Errorf("failed to execute code in container: %w", err)
 	}
-	cleanupCmd := exec.Command("docker", "exec", containerID, "rm", "-f", "/tmp/script."+models.LanguageToExtension[language])
-	cleanupCmd.Run()
+
 	return string(output), nil
 }
