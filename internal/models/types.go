@@ -15,4 +15,10 @@ type ExecuteResponse struct {
 
 var LanguageToExtension = map[string]string{
 	"python3": "py",
+	"nodejs":  "js",
+}
+
+var LanguageToSandbox = map[string]string{
+	"python3": "sandbox-python",
+	"nodejs":  "sandbox-nodejs",
 }
