@@ -19,6 +19,7 @@ func main() {
 
 	// Setup routes
 	router := http.NewServeMux()
+	router.HandleFunc("/", handler.Home)
 	router.HandleFunc("/health", handler.HealthCheck)
 	router.HandleFunc("/execute", handler.Execute)
 
