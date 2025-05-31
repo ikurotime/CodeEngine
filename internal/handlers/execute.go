@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 
 	"ikurotime/code-engine/internal/models"
 	"ikurotime/code-engine/internal/services"
@@ -30,6 +31,12 @@ func (h *Handler) Execute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if executor is shutting down
+	if h.executor.IsShutdown() {
+		h.writeErrorResponse(w, http.StatusServiceUnavailable, "Service is shutting down")
+		return
+	}
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		h.logger.Printf("Error reading request body: %s", err)
@@ -49,6 +56,14 @@ func (h *Handler) Execute(w http.ResponseWriter, r *http.Request) {
 	output, err := h.executor.Execute(request)
 	if err != nil {
 		h.logger.Printf("Error executing code: %s, output: %s", err, output)
+
+		// Check if error is due to shutdown
+		if strings.Contains(err.Error(), "shutting down") {
+			h.writeErrorResponse(w, http.StatusServiceUnavailable, "Service is shutting down")
+			return
+		}
+
+		// Return execution error with output
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(models.ExecuteResponse{Output: output})

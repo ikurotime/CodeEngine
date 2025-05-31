@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"ikurotime/code-engine/internal/handlers"
@@ -23,14 +26,43 @@ func main() {
 	router.HandleFunc("/health", handler.HealthCheck)
 	router.HandleFunc("/execute", handler.Execute)
 
-	// Start server
+	// Create server
 	server := &http.Server{
 		Addr:    ":8080",
 		Handler: router,
 	}
 
-	logger.Printf("Server starting on %s", server.Addr)
-	if err := server.ListenAndServe(); err != nil {
-		logger.Fatal("Server failed to start:", err)
+	// Channel to listen for interrupt signal to terminate gracefully
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	// Start server in a goroutine
+	go func() {
+		logger.Printf("Server starting on %s", server.Addr)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatal("Server failed to start:", err)
+		}
+	}()
+
+	// Wait for interrupt signal
+	<-quit
+	logger.Println("Shutdown signal received")
+
+	// Create a deadline for shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Shutdown HTTP server
+	logger.Println("Shutting down HTTP server...")
+	if err := server.Shutdown(ctx); err != nil {
+		logger.Printf("Server forced to shutdown: %v", err)
+	} else {
+		logger.Println("HTTP server shutdown completed")
 	}
+
+	// Shutdown executor and cleanup containers
+	logger.Println("Shutting down executor and cleaning up containers...")
+	executor.Shutdown()
+
+	logger.Println("Graceful shutdown completed")
 }
