@@ -1,17 +1,97 @@
 package templates
 
 templ Layout(contents templ.Component) {
-	<html>
-		<head>
-			<meta charset="UTF-8"/>
-			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-			<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-			<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-		</head>
-		<body class="bg-gray-100">
-			<div id="contents">
-				@contents
-			</div>
-		</body>
-	</html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+	<link href="https://cdn.jsdelivr.net/npm/vscode-codicons@0.0.17/dist/codicon.min.css" rel="stylesheet" />
+</head>
+
+<body class="bg-gray-100">
+	<div id="contents">
+		@contents
+	</div>
+	<script type="module">
+		import * as monaco from 'https://cdn.jsdelivr.net/npm/monaco-editor@0.39.0/+esm';
+
+		// Alpine.js global store for editor state
+		Alpine.store('editorState', {
+			language: 'python',
+			theme: 'vs-dark',
+			availableLanguages: {
+				'python3': 'python',
+				'nodejs': 'javascript'
+			},
+			availableThemes: ['vs', 'vs-dark', 'hc-black'],
+
+			// Method to update language
+			setLanguage(lang) {
+				this.language = this.availableLanguages[lang] || lang;
+				window.reinitializeEditor();
+			},
+
+			// Method to update theme
+			setTheme(theme) {
+				this.theme = theme;
+				window.reinitializeEditor();
+			}
+		});
+
+		let editorInstance = null;
+
+		// Function to create/recreate the Monaco editor
+		window.reinitializeEditor = function () {
+			const container = document.querySelector('#container');
+			const hiddenInput = document.querySelector('#code');
+
+			if (!container) return; // Container might not be loaded yet
+
+			// Preserve existing content if editor exists
+			let existingContent = '';
+			if (editorInstance) {
+				existingContent = editorInstance.getValue();
+				editorInstance.dispose(); // Clean up the old editor
+			}
+
+			// Create new editor instance
+			editorInstance = monaco.editor.create(container, {
+				language: Alpine.store('editorState').language,
+				theme: Alpine.store('editorState').theme,
+				value: existingContent,
+				automaticLayout: true,
+				minimap: { enabled: false },
+				fontSize: 14,
+				lineNumbers: 'on',
+				wordWrap: 'on'
+			});
+
+			// Update hidden input on content change
+			function updateHiddenInput() {
+				if (hiddenInput) {
+					hiddenInput.value = editorInstance.getValue();
+				}
+			}
+			editorInstance.onDidChangeModelContent(updateHiddenInput);
+
+			// Initial update of hidden input
+			updateHiddenInput();
+		};
+
+		// Initialize editor when DOM is ready
+		document.addEventListener('DOMContentLoaded', () => {
+			// Small delay to ensure Alpine.js is initialized
+			setTimeout(() => {
+				window.reinitializeEditor();
+			}, 100);
+		});
+
+		// Make the editor instance globally accessible for debugging
+		window.getEditor = () => editorInstance;
+	</script>
+</body>
+
+</html>
 }
