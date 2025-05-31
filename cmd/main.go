@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"ikurotime/code-engine/config"
 	"ikurotime/code-engine/internal/handlers"
 	"ikurotime/code-engine/internal/services"
 )
@@ -16,8 +17,13 @@ import (
 func main() {
 	logger := log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
 
+	config, err := config.LoadConfig()
+	if err != nil {
+		logger.Fatalf("Failed to load config: %v", err)
+	}
+
 	// Initialize services
-	executor := services.NewExecutor(1, 30*time.Second, logger)
+	executor := services.NewExecutor(config.Server.MaxConcurrentExecutions, time.Duration(config.Server.ExecutionTimeout)*time.Second, logger)
 	handler := handlers.NewHandler(executor, logger)
 
 	// Setup routes
@@ -28,7 +34,7 @@ func main() {
 
 	// Create server
 	server := &http.Server{
-		Addr:    ":8080",
+		Addr:    config.Server.Port,
 		Handler: router,
 	}
 
