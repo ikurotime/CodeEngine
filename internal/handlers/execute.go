@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -37,18 +36,18 @@ func (h *Handler) Execute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		h.logger.Printf("Error reading request body: %s", err)
-		h.writeErrorResponse(w, http.StatusInternalServerError, "Failed to read request body")
+	//formdata
+	code := r.FormValue("code")
+	language := r.FormValue("language")
+
+	if code == "" || language == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, "Code and language are required")
 		return
 	}
 
-	var request models.ExecuteRequest
-	if err := json.Unmarshal(body, &request); err != nil {
-		h.logger.Printf("Error unmarshalling request: %s", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, "Invalid JSON")
-		return
+	request := models.ExecuteRequest{
+		Code:     code,
+		Language: language,
 	}
 
 	h.logger.Printf("Request: %+v", request)
